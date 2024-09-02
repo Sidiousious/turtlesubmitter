@@ -1,0 +1,8 @@
+#!/bin/bash
+
+rm -r out
+mkdir out
+go build -o out/turtlesubmitter-linux-x64
+GOOS=windows GOARCH=amd64 go build -o out/turtlesubmitter.exe
+GOOS=darwin GOARCH=arm64 go build -o out/turtlesubmitter-macos-apple-silicon
+GOOS=darwin GOARCH=amd64 go build -o out/turtlesubmitter-macos-intel
