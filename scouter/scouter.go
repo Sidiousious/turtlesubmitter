@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"math"
@@ -70,11 +71,15 @@ func (s *Scouter) Run(dir string) {
 	go func() {
 		for range ticker.C {
 			func() {
+				mutex.Lock()
+				defer mutex.Unlock()
 				if dueForSend {
-					mutex.Lock()
 					dueForSend = false
-					defer mutex.Unlock()
-					s.sendMobs(mobs)
+					err := s.sendMobs(mobs)
+					if err != nil {
+						log.Print(err)
+						dueForSend = true
+					}
 				}
 			}()
 		}
@@ -87,10 +92,12 @@ func (s *Scouter) Run(dir string) {
 			if !contains(acceptedMobs, mob.Name) {
 				continue
 			}
-			mutex.Lock()
-			mobs[mob.Name+strconv.FormatUint(uint64(mob.Instance), 10)] = mob
-			dueForSend = true
-			mutex.Unlock()
+			func() {
+				mutex.Lock()
+				defer mutex.Unlock()
+				mobs[mob.Name+strconv.FormatUint(uint64(mob.Instance), 10)] = mob
+				dueForSend = true
+			}()
 		}
 	}
 }
@@ -138,7 +145,7 @@ type Mob struct {
 }
 
 // sendMobs sends the list of found mobs to the turtle server
-func (s *Scouter) sendMobs(mobs map[string]*Mob) {
+func (s *Scouter) sendMobs(mobs map[string]*Mob) error {
 	// PATCH https://scout.wobbuffet.net/api/v1/scout/<session>
 	// {"collaborator_password": "<pass>", "sightings": [{"zone_id": uint, "mob_id": uint, "instance_number": uint, "x": string, "y": string}]}
 
@@ -154,19 +161,19 @@ func (s *Scouter) sendMobs(mobs map[string]*Mob) {
 
 	body, err := json.Marshal(sightings)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, bytes.NewReader(body))
 	if err != nil {
-		log.Print(err)
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Print(err)
+		return err
 	}
 	defer res.Body.Close()
 
@@ -174,9 +181,11 @@ func (s *Scouter) sendMobs(mobs map[string]*Mob) {
 		resBody, _ := io.ReadAll(res.Body)
 		log.Print("Failed to send mobs:", res.Status)
 		log.Print(string(resBody))
+		return errors.New("Failed to send mobs")
 	} else {
 		log.Print("Mobs successfully sent")
 	}
+	return nil
 }
 
 func (s *Scouter) parseLine(line string) *Mob {
