@@ -57,6 +57,8 @@ func (s *Scouter) Run(dir string) {
 				for mob := range mobs {
 					acceptedMobs = append(acceptedMobs, mob)
 				}
+			} else {
+				log.Fatalf("Expansion %s not found", expansion)
 			}
 		}
 	}

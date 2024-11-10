@@ -27,7 +27,7 @@ func main() {
 
 	var enabledExpansions []string
 	if expansions != nil && *expansions != "" {
-		enabledExpansions = strings.Split(*expansions, ",")
+		enabledExpansions = strings.Split(strings.ToUpper(*expansions), ",")
 	}
 
 	if *url != "" {
