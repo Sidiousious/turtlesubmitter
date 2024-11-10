@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -17,10 +18,22 @@ func main() {
 	dir := detectDefaultLogDirectory()
 	turtleUrl := os.Getenv("TURTLE_URL")
 
+	flag.Usage = func() {
+		w := flag.CommandLine.Output()
+		fmt.Fprintf(w, "Usage: %s [flags]\n\nFlags:\n", os.Args[0])
+		flag.PrintDefaults()
+		fmt.Fprintf(w, "\nEnvironment variables:\n")
+		fmt.Fprintf(w, "  TURTLE_SESSION: Turtle session ID (alternative to -turtle)\n")
+		fmt.Fprintf(w, "  TURTLE_PASSWORD: Turtle session password (alternative to -turtle)\n")
+		fmt.Fprintf(w, "  TURTLE_URL: Turtle share URL (alternative to -turtle)\n")
+		fmt.Fprintf(w, "  IINACTPATH: ACT or IINACT log directory (alternative to -logdir)\n")
+		fmt.Fprintf(w, "\nFlags will take precedence over environment variables.\nTurtle session and password must be included in some manner.\n")
+	}
+
 	expansions := flag.String("expansions", "", "which expansions to scout, e.g. DT,EW")
 	url := flag.String("turtle", turtleUrl, "share URL from turtle, e.g. https://scout.wobbuffet.net/scout/foo/bar")
 	lookback := flag.Duration("lookback", 4*time.Hour, "how long to look back in the log file, e.g. 4h. Uses Go duration format. Only looks back in the latest log file.")
-	logdir := flag.String("logdir", dir, "directory where the log files are located")
+	logdir := flag.String("logdir", dir, "directory where the log files are located. Defaults to ACT or IINACT log directory, if those exist (dynamic detection)")
 	flag.Parse()
 
 	printGPLNotice()
