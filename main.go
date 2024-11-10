@@ -27,7 +27,7 @@ func main() {
 		fmt.Fprintf(w, "  TURTLE_PASSWORD: Turtle session password (alternative to -turtle)\n")
 		fmt.Fprintf(w, "  TURTLE_URL: Turtle share URL (alternative to -turtle)\n")
 		fmt.Fprintf(w, "  IINACTPATH: ACT or IINACT log directory (alternative to -logdir)\n")
-		fmt.Fprintf(w, "\nFlags will take precedence over environment variables.\nTurtle session and password must be included in some manner.\n")
+		fmt.Fprintf(w, "\nFlags will take precedence over environment variables.\nA new turtle session will be created, if existing password and session are not provided.\n")
 	}
 
 	expansions := flag.String("expansions", "", "which expansions to scout, e.g. DT,EW")
@@ -50,10 +50,22 @@ func main() {
 	}
 
 	if pass == "" {
-		log.Fatal("Turtle session password was not provided. Please provide the share URL as an argument or set TURTLE_PASSWORD")
+		newSess, err := scouter.CreateTurtle()
+		if err != nil {
+			log.Println("Failed to create new turtle session. You can provide an existing session with -turtle or TURTLE_URL. See -help for more information.")
+			log.Fatal(err)
+		}
+		sess = newSess.SessionID
+		pass = newSess.Password
+		fmt.Println("--------------------------------------------")
+		fmt.Printf("  Turtle URL: %s\n", newSess.URL)
+		fmt.Printf("Readonly URL: %s\n", newSess.ReadURL)
+		fmt.Println("--------------------------------------------")
 	}
-	if sess == "" {
-		log.Fatal("Turtle session was not provided. Please provide the share URL as an argument or set TURTLE_SESSION")
+
+	if sess == "" || pass == "" {
+		log.Println("Session ID and password are required. See -help for more information.")
+		os.Exit(1)
 	}
 
 	scouter := scouter.Scouter{Session: sess, Password: pass, Expansions: enabledExpansions, Lookback: *lookback}

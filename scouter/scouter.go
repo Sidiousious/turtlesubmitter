@@ -190,6 +190,42 @@ func (s *Scouter) sendMobs(mobs map[string]*Mob) error {
 	return nil
 }
 
+type TurtleSession struct {
+	SessionID string `json:"slug"`
+	Password  string `json:"collaborator_password"`
+	ReadURL   string `json:"readonly_url"`
+	URL       string `json:"collaborate_url"`
+}
+
+func CreateTurtle() (*TurtleSession, error) {
+	url := "https://scout.wobbuffet.net/api/v1/scout"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		resBody, _ := io.ReadAll(res.Body)
+		log.Printf("Failed to create turtle: %s\nBody:\n%s", res.Status, resBody)
+		return nil, errors.New("Failed to create turtle")
+	}
+
+	var session TurtleSession
+	err = json.NewDecoder(res.Body).Decode(&session)
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
 func (s *Scouter) parseLine(line string) *Mob {
 	// 261|2024-08-21T17:07:49.3900000+03:00|Add|40034AD3|BNpcID|43DC|BNpcNameID|3459|CastTargetID|E0000000|CurrentMP|10000|CurrentWorldID|65535|Heading|1.6686|Level|100|MaxHP|32956266|MaxMP|10000|Name|Keheniheyamewi|NPCTargetID|10812C10|PosX|500.9187|PosY|83.0748|PosZ|-2.0892|Radius|8.5000|Type|2|WorldID|65535|2c4bf29b9acde190
 
