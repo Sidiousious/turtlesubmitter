@@ -3,7 +3,12 @@ package ioext
 import (
 	"log"
 	"os"
+	"regexp"
 	"time"
+)
+
+var (
+	logFileFormatPattern = regexp.MustCompile(`^Network.*\.log$`)
 )
 
 func GetLatestFile(dir string) os.DirEntry {
@@ -20,6 +25,9 @@ func GetLatestFile(dir string) os.DirEntry {
 		info, err := file.Info()
 		if err != nil {
 			log.Fatal(err)
+		}
+		if !logFileFormatPattern.MatchString(info.Name()) {
+			continue // Skip files that do not match the log file format
 		}
 		if lastFile == nil || info.ModTime().After(lastModifTime) {
 			lastFile = file
