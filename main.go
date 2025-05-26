@@ -34,6 +34,7 @@ func main() {
 	url := flag.String("turtle", turtleUrl, "share URL from turtle, e.g. https://scout.wobbuffet.net/scout/foo/bar")
 	lookback := flag.Duration("lookback", 4*time.Hour, "how long to look back in the log file, e.g. 4h. Uses Go duration format. Only looks back in the latest log file.")
 	logdir := flag.String("logdir", dir, "directory where the log files are located. Defaults to ACT or IINACT log directory, if those exist (dynamic detection)")
+	world := flag.String("world", "Cactuar", "World name to filter by")
 	flag.Parse()
 
 	printGPLNotice()
@@ -60,7 +61,7 @@ func main() {
 		fmt.Println("--------------------------------------------")
 		fmt.Printf("  Turtle URL: %s\n", newSess.URL)
 		fmt.Printf("Readonly URL: %s\n", newSess.ReadURL)
-		fmt.Println("--------------------------------------------")
+		fmt.Printf("--------------------------------------------\n\n")
 	}
 
 	if sess == "" || pass == "" {
@@ -68,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	scouter := scouter.Scouter{Session: sess, Password: pass, Expansions: enabledExpansions, Lookback: *lookback}
+	scouter := scouter.Scouter{Session: sess, Password: pass, Expansions: enabledExpansions, Lookback: time.Now().Add(-*lookback), World: *world}
 	scouter.Run(*logdir)
 }
 

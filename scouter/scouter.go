@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -21,19 +22,31 @@ import (
 	"github.com/Sidiousious/turtlesubmitter/ioext"
 )
 
+var (
+	reWorldWelcome = regexp.MustCompile(`^Welcome to ([^! ]+)!$`)
+)
+
 type Scouter struct {
 	Session    string
 	Password   string
 	Expansions []string
-	Lookback   time.Duration
+	Lookback   time.Time
+	World      string
+
+	currentlyOffWorld bool // used to track if we are off world and should skip lines until we are back on world
 }
 
 func (s *Scouter) Run(dir string) {
-	log.Printf("Scouting to https://scout.wobbuffet.net/scout/%s/%s", s.Session, s.Password)
+	fmt.Println("--------------------------------------------------------")
+	fmt.Printf("Scouting to https://scout.wobbuffet.net/scout/%s/%s\n", s.Session, s.Password)
+	fmt.Printf("Looking back to %s\n", s.Lookback)
+	fmt.Printf("Enabled expansions: %v\n", s.Expansions)
+	fmt.Printf("World: %s\n", s.World)
 
 	logFile := ioext.GetLatestFile(dir)
 	logFilePath := path.Join(dir, logFile.Name())
-	log.Printf("Latest file: %s", logFilePath)
+	fmt.Printf("Latest file: %s\n", logFilePath)
+	fmt.Println("--------------------------------------------------------")
 
 	// Continuously read the file for new lines
 	h, err := ioext.NewTailReader(logFilePath)
@@ -231,17 +244,44 @@ func (s *Scouter) parseLine(line string) *Mob {
 
 	parts := strings.Split(line, "|")
 
-	date := parts[1]
-	d, err := time.Parse(time.RFC3339, date)
-	if err == nil {
-		if d.Before(time.Now().Add(-s.Lookback)) {
-			return nil
-		}
+	if len(parts) < 2 {
+		return nil
 	}
 
-	switch parts[0] {
-	case "00":
-		return parseChatFlag(parts, d)
+	date := parts[1]
+	timestamp, err := time.Parse(time.RFC3339, date)
+	if err != nil {
+		log.Printf("could not parse date %s: %v", date, err)
+	}
+
+	code, err := strconv.Atoi(parts[0])
+	if err != nil {
+		log.Printf("could not parse code %s: %v", parts[0], err)
+	}
+
+	switch code {
+	case 0:
+		if len(parts) < 5 {
+			return nil
+		}
+		if reWorldWelcome.MatchString(parts[4]) {
+			if !isSystemMessage(parts) {
+				return nil
+			}
+			expected := "Welcome to " + s.World + "!"
+			if parts[4] == expected {
+				s.currentlyOffWorld = false
+				fmt.Printf("%v >> on world: %s\n", timestamp, s.World)
+				return nil
+			}
+			s.currentlyOffWorld = true
+			fmt.Printf("%v >> off world: %s\n", timestamp, parts[4])
+			return nil
+		}
+		if timestamp.Before(s.Lookback) {
+			return nil
+		}
+		return parseChatFlag(parts, timestamp)
 		// case "261":
 		// 	return parseAdd(parts)
 		// case "01":
@@ -249,6 +289,10 @@ func (s *Scouter) parseLine(line string) *Mob {
 		// 	return nil
 	}
 	return nil
+}
+
+func isSystemMessage(parts []string) bool {
+	return len(parts[3]) == 0
 }
 
 // parseChatFlag parses a chat flag line and returns a Mob with its spawnpoint coordinates, if the message contains a mob name
@@ -279,7 +323,7 @@ func parseChatFlag(parts []string, timestamp time.Time) *Mob {
 	mob.Zone = zones[zone]
 	mob.PosX = asFloat(matches[3])
 	mob.PosY = asFloat(matches[4])
-	log.Printf("Mob: %+v in %s at %v", mob, zone, timestamp)
+	fmt.Printf("%v >> Mob: %+v in %s\n", timestamp, mob, zone)
 	spawn := findClosestSpawnpoint(mob)
 	mob.PosX = spawn.X
 	mob.PosY = spawn.Y

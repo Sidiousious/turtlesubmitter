@@ -34,8 +34,8 @@ var (
 	}
 
 	/*
-
-	 */
+		TODO: https://scout.wobbuffet.net/api/v1/spawnpoints
+	*/
 	spawnpoints = map[uint][]Point{
 		612: {{X: 33.3, Y: 33.35},
 			{X: 25.85, Y: 31.9},
