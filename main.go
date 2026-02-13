@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -17,6 +18,15 @@ func main() {
 	pass := os.Getenv("TURTLE_PASSWORD")
 	dir := detectDefaultLogDirectory()
 	turtleUrl := os.Getenv("TURTLE_URL")
+	baseUrl := url.URL{Scheme: "https", Host: "scout.wobbuffet.net", Path: "/"}
+	envBaseUrl := os.Getenv("BASE_URL")
+	if envBaseUrl != "" {
+		parsedUrl, err := url.Parse(envBaseUrl)
+		if err != nil {
+			log.Fatalf("Failed to parse BASE_URL: %v", err)
+		}
+		baseUrl = *parsedUrl
+	}
 
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
@@ -27,11 +37,12 @@ func main() {
 		fmt.Fprintf(w, "  TURTLE_PASSWORD: Turtle session password (alternative to -turtle)\n")
 		fmt.Fprintf(w, "  TURTLE_URL: Turtle share URL (alternative to -turtle)\n")
 		fmt.Fprintf(w, "  IINACTPATH: ACT or IINACT log directory (alternative to -logdir)\n")
+		fmt.Fprintf(w, "  BASE_URL: Base URL for turtle (default https://scout.wobbuffet.net/, not used if full turtle URL provided)\n")
 		fmt.Fprintf(w, "\nFlags will take precedence over environment variables.\nA new turtle session will be created, if existing password and session are not provided.\n")
 	}
 
 	expansions := flag.String("expansions", "", "which expansions to scout, e.g. DT,EW")
-	url := flag.String("turtle", turtleUrl, "share URL from turtle, e.g. https://scout.wobbuffet.net/scout/foo/bar")
+	urlFlag := flag.String("turtle", turtleUrl, "share URL from turtle, e.g. https://scout.wobbuffet.net/scout/foo/bar")
 	lookback := flag.Duration("lookback", 4*time.Hour, "how long to look back in the log file, e.g. 4h. Uses Go duration format. Only looks back in the latest log file.")
 	logdir := flag.String("logdir", dir, "directory where the log files are located. Defaults to ACT or IINACT log directory, if those exist (dynamic detection)")
 	world := flag.String("world", "Cactuar", "World name to filter by")
@@ -44,14 +55,24 @@ func main() {
 		enabledExpansions = strings.Split(strings.ToUpper(*expansions), ",")
 	}
 
-	if *url != "" {
-		parts := strings.Split(*url, "/")
+	if *urlFlag != "" {
+		u, err := url.Parse(*urlFlag)
+		if err != nil {
+			log.Fatalf("Failed to parse turtle URL: %v", err)
+		}
+		baseUrl.Scheme = u.Scheme
+		baseUrl.Host = u.Host
+		parts := strings.Split(*urlFlag, "/")
 		sess = parts[len(parts)-2]
 		pass = parts[len(parts)-1]
+		passParts := strings.Split(pass, "#")
+		pass = passParts[0]
+		passParts = strings.Split(pass, "?")
+		pass = passParts[0]
 	}
 
 	if pass == "" {
-		newSess, err := scouter.CreateTurtle()
+		newSess, err := scouter.CreateTurtle(baseUrl.String())
 		if err != nil {
 			log.Println("Failed to create new turtle session. You can provide an existing session with -turtle or TURTLE_URL. See -help for more information.")
 			log.Fatal(err)
@@ -69,7 +90,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	scouter := scouter.Scouter{Session: sess, Password: pass, Expansions: enabledExpansions, Lookback: time.Now().Add(-*lookback), World: *world}
+	scouter := scouter.Scouter{BaseUrl: baseUrl, Session: sess, Password: pass, Expansions: enabledExpansions, Lookback: time.Now().Add(-*lookback), World: *world}
 	scouter.Run(*logdir)
 }
 

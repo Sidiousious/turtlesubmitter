@@ -11,6 +11,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"path"
 	"regexp"
 	"strconv"
@@ -27,6 +28,7 @@ var (
 )
 
 type Scouter struct {
+	BaseUrl    url.URL
 	Session    string
 	Password   string
 	Expansions []string
@@ -38,7 +40,7 @@ type Scouter struct {
 
 func (s *Scouter) Run(dir string) {
 	fmt.Println("--------------------------------------------------------")
-	fmt.Printf("Scouting to https://scout.wobbuffet.net/scout/%s/%s\n", s.Session, s.Password)
+	fmt.Printf("Scouting to %s%s/%s\n", s.BaseUrl.String(), s.Session, s.Password)
 	fmt.Printf("Looking back to %s\n", s.Lookback)
 	fmt.Printf("Enabled expansions: %v\n", s.Expansions)
 	fmt.Printf("World: %s\n", s.World)
@@ -103,7 +105,7 @@ func (s *Scouter) Run(dir string) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		mob := s.parseLine(line)
-		if mob != nil {
+		if mob != nil && !s.currentlyOffWorld {
 			if !contains(acceptedMobs, mob.Name) {
 				continue
 			}
@@ -164,7 +166,7 @@ func (s *Scouter) sendMobs(mobs map[string]*Mob) error {
 	// PATCH https://scout.wobbuffet.net/api/v1/scout/<session>
 	// {"collaborator_password": "<pass>", "sightings": [{"zone_id": uint, "mob_id": uint, "instance_number": uint, "x": string, "y": string}]}
 
-	url := "https://scout.wobbuffet.net/api/v1/scout/" + s.Session
+	url := s.BaseUrl.String() + "api/v1/scout/" + s.Session
 	log.Print("Sending mobs to ", url)
 	sightings := TurtleSightings{
 		CollaboratorPassword: s.Password,
@@ -210,8 +212,8 @@ type TurtleSession struct {
 	URL       string `json:"collaborate_url"`
 }
 
-func CreateTurtle() (*TurtleSession, error) {
-	url := "https://scout.wobbuffet.net/api/v1/scout"
+func CreateTurtle(url string) (*TurtleSession, error) {
+	url += "api/v1/scout"
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
