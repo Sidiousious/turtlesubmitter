@@ -40,7 +40,7 @@ type Scouter struct {
 
 func (s *Scouter) Run(dir string) {
 	fmt.Println("--------------------------------------------------------")
-	fmt.Printf("Scouting to %s%s/%s\n", s.BaseUrl.String(), s.Session, s.Password)
+	fmt.Printf("Scouting to %sscout/%s/%s\n", s.BaseUrl.String(), s.Session, s.Password)
 	fmt.Printf("Looking back to %s\n", s.Lookback)
 	fmt.Printf("Enabled expansions: %v\n", s.Expansions)
 	fmt.Printf("World: %s\n", s.World)
